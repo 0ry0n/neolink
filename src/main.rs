@@ -18,6 +18,7 @@ mod cmdline;
 mod config;
 mod reboot;
 mod rtsp;
+mod v4l;
 mod statusled;
 mod talk;
 mod utils;
@@ -57,6 +58,9 @@ fn main() -> Result<()> {
         }
         Some(Command::Rtsp(opts)) => {
             rtsp::main(opts, config)?;
+        }
+        Some(Command::V4l(opts)) => {
+            v4l::main(opts, config)?;
         }
         Some(Command::StatusLight(opts)) => {
             statusled::main(opts, config)?;

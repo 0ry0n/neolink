@@ -9,6 +9,8 @@ use validator_derive::Validate;
 lazy_static! {
     static ref RE_STREAM_SRC: Regex =
         Regex::new(r"^(mainStream|subStream|externStream|both|all)$").unwrap();
+    static ref RE_V4LSTREAM_SRC: Regex =
+        Regex::new(r"^(mainStream|subStream|externStream)$").unwrap();
     static ref RE_TLS_CLIENT_AUTH: Regex = Regex::new(r"^(none|request|require)$").unwrap();
 }
 
@@ -73,6 +75,16 @@ pub(crate) struct CameraConfig {
     #[validate(range(min = 0, max = 31, message = "Invalid channel", code = "channel_id"))]
     #[serde(default = "default_channel_id")]
     pub(crate) channel_id: u8,
+
+    #[validate(range(min = 0, max = 31, message = "Invalid device number", code = "v4ldevice"))]
+    pub(crate) v4ldevice: u8,
+    #[validate(regex(
+        path = "RE_V4LSTREAM_SRC",
+        message = "Incorrect stream source",
+        code = "v4lstream"
+    ))]
+    #[serde(default = "default_stream")]
+    pub(crate) v4lstream: String,
 }
 
 #[derive(Debug, Deserialize, Validate, Clone)]

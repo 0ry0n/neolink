@@ -18,6 +18,7 @@ pub struct Opt {
 #[derive(StructOpt, Debug)]
 pub enum Command {
     Rtsp(super::rtsp::Opt),
+    V4l(super::v4l::Opt),
     StatusLight(super::statusled::Opt),
     Reboot(super::reboot::Opt),
     Talk(super::talk::Opt),

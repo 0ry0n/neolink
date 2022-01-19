@@ -47,6 +47,12 @@ address = "192.168.1.187:9000"
 # If your device has user connection limits try a single stream instead.
 # stream = "mainStream"
 
+# v4l section
+# device
+v4ldevice = "0"
+# stream
+v4lstream = "mainStream"
+
 
 [[cameras]]
 name = "storage shed"

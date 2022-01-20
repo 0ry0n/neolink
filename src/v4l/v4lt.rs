@@ -10,14 +10,14 @@ use neolink_core::{
 
 type Result<T> = std::result::Result<T, ()>;
 
-pub(crate) struct V4lDevice {
-    device: Device,
+pub(crate) struct V4lDevice<'a> {
+    device: &'a mut Device,
 }
 
-pub(crate) struct V4ltOutputs<'a> {
-    vidsrc: MmapStream<'a>,
+pub(crate) struct V4ltOutputs<'b, 'c> {
+    vidsrc: &'b mut MmapStream<'b>,
     video_format: Option<StreamFormat>,
-    device: &'a Device,
+    device: &'c mut Device,
 }
 
 // The stream from the camera will be using one of these formats
@@ -32,7 +32,7 @@ enum StreamFormat {
     H265,
 }
 
-impl StreamOutput for V4ltOutputs<'_> {
+impl<'b, 'c> StreamOutput for V4ltOutputs<'b, 'c> {
     fn write(&mut self, media: BcMedia) -> StreamOutputError {
         match media {
             BcMedia::Iframe(payload) => {
@@ -43,7 +43,7 @@ impl StreamOutput for V4ltOutputs<'_> {
                 self.set_format(Some(video_type));
                 //self.vidsrc.write_all(&payload.data)?;
 
-                let (buf_out, buf_out_meta) = OutputStream::next(&mut self.vidsrc).unwrap();
+                let (buf_out, buf_out_meta) = OutputStream::next(self.vidsrc).unwrap();
 
                 // Output devices generally cannot know the exact size of the output buffers for
                 // compressed formats (e.g. MJPG). They will however allocate a size that is always
@@ -63,7 +63,7 @@ impl StreamOutput for V4ltOutputs<'_> {
                 self.set_format(Some(video_type));
                 //self.vidsrc.write_all(&payload.data)?;
 
-                let (buf_out, buf_out_meta) = OutputStream::next(&mut self.vidsrc).unwrap();
+                let (buf_out, buf_out_meta) = OutputStream::next(self.vidsrc).unwrap();
 
                 // Output devices generally cannot know the exact size of the output buffers for
                 // compressed formats (e.g. MJPG). They will however allocate a size that is always
@@ -84,8 +84,8 @@ impl StreamOutput for V4ltOutputs<'_> {
     }
 }
 
-impl V4ltOutputs<'_> {
-    pub(crate) fn from_appsrcs<'a>(device: &'a Device, vidsrc: MmapStream<'a>) -> V4ltOutputs<'a> {
+impl<'b, 'c> V4ltOutputs<'b, 'c> {
+    pub(crate) fn from_appsrcs(device: &'c mut Device, vidsrc: &'b mut MmapStream<'b>) -> V4ltOutputs<'b, 'c> {
         let result = V4ltOutputs {
             vidsrc,
             video_format: None,
@@ -127,21 +127,21 @@ impl V4ltOutputs<'_> {
     }
 }
 
-impl V4lDevice {
+impl<'a> V4lDevice<'a> {
     pub(crate) fn new(
         device_index: usize,
-    ) -> V4lDevice {
+    ) -> V4lDevice<'a> {
         V4lDevice {
-            device: Device::new(device_index).unwrap(),
+            device: &mut Device::new(device_index).expect("Failed to create device"),
         }
     }
 
     pub(crate) fn add_stream(
         &self,
     ) -> Result<V4ltOutputs> {
-        let stream = MmapStream::with_buffers(&self.device, Type::VideoOutput, 4).unwrap();//.expect("Failed to create buffer stream");
+        let mut stream = MmapStream::with_buffers(&mut &self.device, Type::VideoOutput, 4).expect("Failed to create buffer stream");
 
-        let outputs = V4ltOutputs::from_appsrcs(&self.device, stream);
+        let outputs = V4ltOutputs::from_appsrcs(self.device, &mut stream);
 
         Ok(outputs)
     }

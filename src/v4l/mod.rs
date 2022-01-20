@@ -58,9 +58,8 @@ pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
             // syntax for that.
             let arc_cam = Arc::new(camera);
 
-            let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
-
             if ["mainStream"].iter().any(|&e| e == arc_cam.v4lstream) {
+                let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
                 let mut outputs = v4l
                     .add_stream()
                     .unwrap();
@@ -68,6 +67,7 @@ pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
                 s.spawn(move |_| camera_loop(&*main_camera, Stream::Main, &mut outputs, true));
             }
             if ["subStream"].iter().any(|&e| e == arc_cam.v4lstream) {
+                let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
                 let mut outputs = v4l
                     .add_stream()
                     .unwrap();
@@ -76,6 +76,7 @@ pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
                 s.spawn(move |_| camera_loop(&*sub_camera, Stream::Sub, &mut outputs, manage));
             }
             if ["externStream"].iter().any(|&e| e == arc_cam.v4lstream) {
+                let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
                 let mut outputs = v4l
                     .add_stream()
                     .unwrap();

@@ -49,7 +49,7 @@ address = "192.168.1.187:9000"
 
 # v4l section
 # device
-v4ldevice = "0"
+v4ldevice = 0
 # stream
 v4lstream = "mainStream"
 
@@ -70,3 +70,9 @@ address = "192.168.1.245:9000"
 # **Note**: that unlike in the offical client the  numbering starts from 0 not 1.
 # An 8 channel NVR would have channels 0 through 7
 # channel_id = 0
+
+# v4l section
+# device
+v4ldevice = 1
+# stream
+v4lstream = "mainStream"

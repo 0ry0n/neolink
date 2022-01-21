@@ -9,6 +9,7 @@ use validator_derive::Validate;
 lazy_static! {
     static ref RE_STREAM_SRC: Regex =
         Regex::new(r"^(mainStream|subStream|externStream|both|all)$").unwrap();
+    #[cfg(target_os = "linux")]
     static ref RE_V4LSTREAM_SRC: Regex =
         Regex::new(r"^(mainStream|subStream|externStream)$").unwrap();
     static ref RE_TLS_CLIENT_AUTH: Regex = Regex::new(r"^(none|request|require)$").unwrap();
@@ -76,15 +77,20 @@ pub(crate) struct CameraConfig {
     #[serde(default = "default_channel_id")]
     pub(crate) channel_id: u8,
 
-    #[validate(range(min = 0, max = 31, message = "Invalid device number", code = "v4ldevice"))]
-    pub(crate) v4ldevice: u8,
+    #[cfg(target_os = "linux")]
+    // Maximum number of devices allowed by v4l2loopback (8)
+    #[validate(range(min = 0, max = 7, message = "Invalid device number", code = "v4l_device"))]
+    #[serde(default = "default_v4l_device")]
+    pub(crate) v4l_device: Option<u8>,
+
+    #[cfg(target_os = "linux")]
     #[validate(regex(
         path = "RE_V4LSTREAM_SRC",
         message = "Incorrect stream source",
-        code = "v4lstream"
+        code = "v4l_stream"
     ))]
-    #[serde(default = "default_stream")]
-    pub(crate) v4lstream: String,
+    #[serde(default = "default_v4l_stream")]
+    pub(crate) v4l_stream: String,
 }
 
 #[derive(Debug, Deserialize, Validate, Clone)]
@@ -119,6 +125,16 @@ fn default_tls_client_auth() -> String {
 
 fn default_channel_id() -> u8 {
     0
+}
+
+#[cfg(target_os = "linux")]
+fn default_v4l_device() -> Option<u8> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn default_v4l_stream() -> String {
+    "mainStream".to_string()
 }
 
 pub(crate) static RESERVED_NAMES: &[&str] = &["anyone", "anonymous"];

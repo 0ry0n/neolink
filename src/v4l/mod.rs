@@ -42,47 +42,46 @@ use v4lt::{V4ltOutputs, V4lDevice};
 ///
 /// Opt is the command line options
 pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
-    if config.certificate == None && !config.users.is_empty() {
-        warn!(
-            "Without a server certificate, usernames and passwords will be exchanged in plaintext!"
-        )
-    }
-
     crossbeam::scope(|s| {
         for camera in config.cameras {
             if camera.format.is_some() {
-                warn!("The format config option of the camera has been removed in favour of auto detection.")
+                warn!("The format config option of the camera has been removed in favour of auto detection.");
             }
             // Let subthreads share the camera object; in principle I think they could share
             // the object as it sits in the config.cameras block, but I have not figured out the
             // syntax for that.
             let arc_cam = Arc::new(camera);
 
-            if ["mainStream"].iter().any(|&e| e == arc_cam.v4lstream) {
-                let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
-                let mut outputs = v4l
-                    .add_stream()
-                    .unwrap();
-                let main_camera = arc_cam.clone();
-                s.spawn(move |_| camera_loop(&*main_camera, Stream::Main, &mut outputs, true));
-            }
-            if ["subStream"].iter().any(|&e| e == arc_cam.v4lstream) {
-                let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
-                let mut outputs = v4l
-                    .add_stream()
-                    .unwrap();
-                let sub_camera = arc_cam.clone();
-                let manage = arc_cam.stream == "subStream";
-                s.spawn(move |_| camera_loop(&*sub_camera, Stream::Sub, &mut outputs, manage));
-            }
-            if ["externStream"].iter().any(|&e| e == arc_cam.v4lstream) {
-                let v4l = V4lDevice::new(arc_cam.v4ldevice as usize);
-                let mut outputs = v4l
-                    .add_stream()
-                    .unwrap();
-                let sub_camera = arc_cam.clone();
-                let manage = arc_cam.stream == "externStream";
-                s.spawn(move |_| camera_loop(&*sub_camera, Stream::Extern, &mut outputs, manage));
+            if let Some(v4l_device) = arc_cam.v4l_device {
+                if ["mainStream"].iter().any(|&e| e == arc_cam.v4l_stream) {
+                    let v4l = V4lDevice::new(v4l_device as usize);
+                    let mut outputs = v4l
+                        .add_stream()
+                        .unwrap();
+                    let main_camera = arc_cam.clone();
+                    s.spawn(move |_| camera_loop(&*main_camera, Stream::Main, &mut outputs, true));
+                }
+                if ["subStream"].iter().any(|&e| e == arc_cam.v4l_stream) {
+                    let v4l = V4lDevice::new(v4l_device as usize);
+                    let mut outputs = v4l
+                        .add_stream()
+                        .unwrap();
+                    let sub_camera = arc_cam.clone();
+                    let manage = arc_cam.stream == "subStream";
+                    s.spawn(move |_| camera_loop(&*sub_camera, Stream::Sub, &mut outputs, manage));
+                }
+                if ["externStream"].iter().any(|&e| e == arc_cam.v4l_stream) {
+                    let v4l = V4lDevice::new(v4l_device as usize);
+                    let mut outputs = v4l
+                        .add_stream()
+                        .unwrap();
+                    let sub_camera = arc_cam.clone();
+                    let manage = arc_cam.stream == "externStream";
+                    s.spawn(move |_| camera_loop(&*sub_camera, Stream::Extern, &mut outputs, manage));
+                }
+            } else {
+                error!("No v4l_device found in the config file for camera {}", arc_cam.name);
+                error!("Please update your config file.");
             }
         }
     })

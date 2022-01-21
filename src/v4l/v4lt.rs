@@ -10,14 +10,16 @@ use neolink_core::{
 
 type Result<T> = std::result::Result<T, ()>;
 
-pub(crate) struct V4lDevice<'a> {
-    device: &'a mut Device,
+pub(crate) struct V4lDevice {
+    device: Device,
 }
 
-pub(crate) struct V4ltOutputs<'b, 'c> {
-    vidsrc: &'b mut MmapStream<'b>,
+pub(crate) struct V4ltOutputs<'a> {
+    device: Device,
+    stream: &'a mut MmapStream<'a>,
+    video_width: Option<u32>,
+    video_height: Option<u32>,
     video_format: Option<StreamFormat>,
-    device: &'c mut Device,
 }
 
 // The stream from the camera will be using one of these formats
@@ -32,7 +34,7 @@ enum StreamFormat {
     H265,
 }
 
-impl<'b, 'c> StreamOutput for V4ltOutputs<'b, 'c> {
+impl<'a> StreamOutput for V4ltOutputs<'a> {
     fn write(&mut self, media: BcMedia) -> StreamOutputError {
         match media {
             BcMedia::Iframe(payload) => {
@@ -41,9 +43,8 @@ impl<'b, 'c> StreamOutput for V4ltOutputs<'b, 'c> {
                     VideoType::H265 => StreamFormat::H265,
                 };
                 self.set_format(Some(video_type));
-                //self.vidsrc.write_all(&payload.data)?;
 
-                let (buf_out, buf_out_meta) = OutputStream::next(self.vidsrc).unwrap();
+                let (buf_out, buf_out_meta) = OutputStream::next(self.stream).unwrap();
 
                 // Output devices generally cannot know the exact size of the output buffers for
                 // compressed formats (e.g. MJPG). They will however allocate a size that is always
@@ -61,9 +62,8 @@ impl<'b, 'c> StreamOutput for V4ltOutputs<'b, 'c> {
                     VideoType::H265 => StreamFormat::H265,
                 };
                 self.set_format(Some(video_type));
-                //self.vidsrc.write_all(&payload.data)?;
 
-                let (buf_out, buf_out_meta) = OutputStream::next(self.vidsrc).unwrap();
+                let (buf_out, buf_out_meta) = OutputStream::next(self.stream).unwrap();
 
                 // Output devices generally cannot know the exact size of the output buffers for
                 // compressed formats (e.g. MJPG). They will however allocate a size that is always
@@ -75,6 +75,12 @@ impl<'b, 'c> StreamOutput for V4ltOutputs<'b, 'c> {
                 buf_out_meta.field = 0;
                 //buf_out_meta.bytesused = buf_in_meta.bytesused;
             }
+            BcMedia::InfoV1(info) => {
+                self.set_resolution(info.video_width, info.video_height);
+            }
+            BcMedia::InfoV2(info) => {
+                self.set_resolution(info.video_width, info.video_height);
+            }
             _ => {
                 //Ignore other BcMedia
             }
@@ -84,12 +90,14 @@ impl<'b, 'c> StreamOutput for V4ltOutputs<'b, 'c> {
     }
 }
 
-impl<'b, 'c> V4ltOutputs<'b, 'c> {
-    pub(crate) fn from_appsrcs(device: &'c mut Device, vidsrc: &'b mut MmapStream<'b>) -> V4ltOutputs<'b, 'c> {
+impl<'a> V4ltOutputs<'a> {
+    pub(crate) fn from_device(device: Device, stream: &'a mut MmapStream<'a>) -> V4ltOutputs<'a> {
         let result = V4ltOutputs {
-            vidsrc,
-            video_format: None,
             device,
+            stream,
+            video_width: None,
+            video_height: None,
+            video_format: None,
         };
         result.apply_format();
         result
@@ -107,41 +115,51 @@ impl<'b, 'c> V4ltOutputs<'b, 'c> {
         }
     }
 
+    fn set_resolution(&mut self, width: u32, height: u32) {
+        self.video_width = Some(width);
+        self.video_height = Some(height);
+
+        self.apply_format();
+    }
+
     fn apply_format(&self) {
-        let launch_vid = match self.video_format {
+        let vid_format = match self.video_format {
             Some(StreamFormat::H264) => {
                 b"AVC1"
             }
             Some(StreamFormat::H265) => {
                 b"HEVC"
             }
-            // TODO
-            _ => b"AVC1",
+            _ => {
+                unreachable!();
+            }
         };
-        // TODO
-        let fmt = Format::new(640, 480, FourCC::new(launch_vid));
 
-        let sink_fmt = Output::set_format(self.device, &fmt).unwrap();
+        if self.video_width.is_some() && self.video_height.is_some() {
+            let fmt = Format::new(self.video_width.unwrap(), self.video_height.unwrap(), FourCC::new(vid_format));
 
-        println!("New out format:\n{}", sink_fmt);
+            let sink_fmt = Output::set_format(&self.device, &fmt).unwrap();
+    
+            println!("New out format:\n{}", sink_fmt);
+        }        
     }
 }
 
-impl<'a> V4lDevice<'a> {
+impl V4lDevice {
     pub(crate) fn new(
         device_index: usize,
-    ) -> V4lDevice<'a> {
+    ) -> V4lDevice {
         V4lDevice {
-            device: &mut Device::new(device_index).expect("Failed to create device"),
+            device: Device::new(device_index).expect("Failed to create device"),
         }
     }
 
     pub(crate) fn add_stream(
         &self,
     ) -> Result<V4ltOutputs> {
-        let mut stream = MmapStream::with_buffers(&mut &self.device, Type::VideoOutput, 4).expect("Failed to create buffer stream");
+        let mut stream = MmapStream::new(&self.device, Type::VideoOutput).expect("Failed to create buffer stream");
 
-        let outputs = V4ltOutputs::from_appsrcs(self.device, &mut stream);
+        let outputs = V4ltOutputs::from_device(self.device, &mut stream);
 
         Ok(outputs)
     }

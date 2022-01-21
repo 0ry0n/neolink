@@ -18,6 +18,7 @@ mod cmdline;
 mod config;
 mod reboot;
 mod rtsp;
+#[cfg(target_os = "linux")]
 mod v4l;
 mod statusled;
 mod talk;
@@ -59,6 +60,7 @@ fn main() -> Result<()> {
         Some(Command::Rtsp(opts)) => {
             rtsp::main(opts, config)?;
         }
+        #[cfg(target_os = "linux")]
         Some(Command::V4l(opts)) => {
             v4l::main(opts, config)?;
         }

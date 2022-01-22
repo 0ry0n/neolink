@@ -20,7 +20,8 @@
 /// neolink v4l --config=config.toml
 /// ```
 ///
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
+use crossbeam_channel::unbounded;
 use log::*;
 use neolink_core::bc_protocol::{BcCamera, Stream};
 use neolink_core::Never;
@@ -36,12 +37,16 @@ mod v4lt;
 use super::config::{CameraConfig, Config};
 use crate::utils::AddressOrUid;
 pub(crate) use cmdline::Opt;
-use v4lt::{V4ltOutputs, V4lDevice};
+use v4lt::{V4lDevice, V4lOutputs};
 
 /// Entry point for the v4l subcommand
 ///
 /// Opt is the command line options
 pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
+    if !config.cameras.iter().any(|c| c.v4l_device.is_some()) {
+        return Err(anyhow!("No cameras in the config that are setup for v4l"));
+    }
+
     crossbeam::scope(|s| {
         for camera in config.cameras {
             if camera.format.is_some() {
@@ -53,35 +58,52 @@ pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
             let arc_cam = Arc::new(camera);
 
             if let Some(v4l_device) = arc_cam.v4l_device {
+                info!("Creating v4l_device for camera {} with id of {}", arc_cam.name, v4l_device);
                 if ["mainStream"].iter().any(|&e| e == arc_cam.v4l_stream) {
-                    let v4l = V4lDevice::new(v4l_device as usize);
-                    let mut outputs = v4l
-                        .add_stream()
-                        .unwrap();
+                    let (sender, reciever) = unbounded();
+                    let mut v4lout = V4lOutputs::new(sender);
+                    let mut v4l = V4lDevice::from_device(v4l_device, reciever).unwrap();
+
                     let main_camera = arc_cam.clone();
-                    s.spawn(move |_| camera_loop(&*main_camera, Stream::Main, &mut outputs, true));
+                    s.spawn(move |_| camera_loop(&*main_camera, Stream::Main, &mut v4lout, true));
+
+                    s.spawn(move |_| {
+                        let err = v4l.run().unwrap_err();
+                        error!("Error on v4l device: {:?}", err);
+                    });
                 }
                 if ["subStream"].iter().any(|&e| e == arc_cam.v4l_stream) {
-                    let v4l = V4lDevice::new(v4l_device as usize);
-                    let mut outputs = v4l
-                        .add_stream()
-                        .unwrap();
-                    let sub_camera = arc_cam.clone();
+                    let (sender, reciever) = unbounded();
+                    let mut v4lout = V4lOutputs::new(sender);
+                    let mut v4l = V4lDevice::from_device(v4l_device, reciever).unwrap();
+
                     let manage = arc_cam.stream == "subStream";
-                    s.spawn(move |_| camera_loop(&*sub_camera, Stream::Sub, &mut outputs, manage));
+
+                    let main_camera = arc_cam.clone();
+                    s.spawn(move |_| camera_loop(&*main_camera, Stream::Sub, &mut v4lout, manage));
+
+                    s.spawn(move |_| {
+                        let err = v4l.run().unwrap_err();
+                        error!("Error on v4l device: {:?}", err);
+                    });
                 }
                 if ["externStream"].iter().any(|&e| e == arc_cam.v4l_stream) {
-                    let v4l = V4lDevice::new(v4l_device as usize);
-                    let mut outputs = v4l
-                        .add_stream()
-                        .unwrap();
-                    let sub_camera = arc_cam.clone();
+                    let (sender, reciever) = unbounded();
+                    let mut v4lout = V4lOutputs::new(sender);
+                    let mut v4l = V4lDevice::from_device(v4l_device, reciever).unwrap();
+
                     let manage = arc_cam.stream == "externStream";
-                    s.spawn(move |_| camera_loop(&*sub_camera, Stream::Extern, &mut outputs, manage));
+
+                    let main_camera = arc_cam.clone();
+                    s.spawn(move |_| camera_loop(&*main_camera, Stream::Extern, &mut v4lout, manage));
+
+                    s.spawn(move |_| {
+                        let err = v4l.run().unwrap_err();
+                        error!("Error on v4l device: {:?}", err);
+                    });
                 }
             } else {
-                error!("No v4l_device found in the config file for camera {}", arc_cam.name);
-                error!("Please update your config file.");
+                info!("No v4l_device found in the config file for camera {}", arc_cam.name);
             }
         }
     })
@@ -93,7 +115,7 @@ pub(crate) fn main(_opt: Opt, config: Config) -> Result<()> {
 fn camera_loop(
     camera_config: &CameraConfig,
     stream_name: Stream,
-    outputs: &mut V4ltOutputs,
+    outputs: &mut V4lOutputs,
     manage: bool,
 ) -> Result<Never> {
     let min_backoff = Duration::from_secs(1);
@@ -135,7 +157,7 @@ struct CameraErr {
 fn camera_main(
     camera_config: &CameraConfig,
     stream_name: Stream,
-    outputs: &mut V4ltOutputs,
+    outputs: &mut V4lOutputs,
     manage: bool,
 ) -> Result<Never, CameraErr> {
     let mut connected = false;

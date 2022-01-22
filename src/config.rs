@@ -9,10 +9,13 @@ use validator_derive::Validate;
 lazy_static! {
     static ref RE_STREAM_SRC: Regex =
         Regex::new(r"^(mainStream|subStream|externStream|both|all)$").unwrap();
-    #[cfg(target_os = "linux")]
+    static ref RE_TLS_CLIENT_AUTH: Regex = Regex::new(r"^(none|request|require)$").unwrap();
+}
+// Linux only constants
+#[cfg(target_os = "linux")]
+lazy_static! {
     static ref RE_V4LSTREAM_SRC: Regex =
         Regex::new(r"^(mainStream|subStream|externStream)$").unwrap();
-    static ref RE_TLS_CLIENT_AUTH: Regex = Regex::new(r"^(none|request|require)$").unwrap();
 }
 
 #[derive(Debug, Deserialize, Validate, Clone)]
@@ -79,7 +82,12 @@ pub(crate) struct CameraConfig {
 
     #[cfg(target_os = "linux")]
     // Maximum number of devices allowed by v4l2loopback (8)
-    #[validate(range(min = 0, max = 7, message = "Invalid device number", code = "v4l_device"))]
+    #[validate(range(
+        min = 0,
+        max = 7,
+        message = "Invalid device number",
+        code = "v4l_device"
+    ))]
     #[serde(default = "default_v4l_device")]
     pub(crate) v4l_device: Option<u8>,
 

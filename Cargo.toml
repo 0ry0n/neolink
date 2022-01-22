@@ -4,6 +4,7 @@ description = "A standards-compliant bridge to Reolink IP cameras"
 version = "0.4.0"
 authors = ["George Hilliard <thirtythreeforty@gmail.com>"]
 edition = "2018"
+resolver = "2"
 
 [workspace]
 members = [
@@ -40,4 +41,8 @@ validator = "0.10"
 validator_derive = "0.10"
 byte-slice-cast = "1.0.0"
 anyhow = "1.0.42"
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
 v4l = "0.12.1"
+crossbeam-channel = "0.5.2"

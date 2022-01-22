@@ -49,9 +49,9 @@ address = "192.168.1.187:9000"
 
 # v4l section
 # device
-v4ldevice = 0
+v4l_device = 0
 # stream
-v4lstream = "mainStream"
+v4l_stream = "mainStream"
 
 
 [[cameras]]
@@ -73,6 +73,6 @@ address = "192.168.1.245:9000"
 
 # v4l section
 # device
-v4ldevice = 1
+v4l_device = 1
 # stream
-v4lstream = "mainStream"
+v4l_stream = "mainStream"

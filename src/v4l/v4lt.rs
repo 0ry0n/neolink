@@ -9,6 +9,7 @@ use v4l::buffer::Type;
 use v4l::io::traits::OutputStream;
 use v4l::prelude::*;
 use v4l::video::Output;
+use v4l::video::output::Parameters;
 use v4l::{Format, FourCC};
 
 pub(crate) struct V4lDevice {
@@ -16,6 +17,7 @@ pub(crate) struct V4lDevice {
     receiver: Receiver<BcMedia>,
     video_width: Option<u32>,
     video_height: Option<u32>,
+    video_fps: Option<u8>,
     video_format: Option<StreamFormat>,
 }
 
@@ -56,6 +58,7 @@ impl V4lDevice {
             receiver,
             video_width: None,
             video_height: None,
+            video_fps: None,
             video_format: None,
         };
         result.apply_format();
@@ -70,6 +73,7 @@ impl V4lDevice {
         // enough data to setup the height etc
         while (self.video_width.is_none()
             || self.video_height.is_none()
+            || self.video_fps.is_none()
             || self.video_format.is_none())
             && packets <= 10
         {
@@ -91,9 +95,11 @@ impl V4lDevice {
                 }
                 BcMedia::InfoV1(info) => {
                     self.set_resolution(info.video_width, info.video_height);
+                    self.set_fps(info.fps);
                 }
                 BcMedia::InfoV2(info) => {
                     self.set_resolution(info.video_width, info.video_height);
+                    self.set_fps(info.fps);
                 }
                 _ => {
                     //Ignore other BcMedia
@@ -164,6 +170,12 @@ impl V4lDevice {
         self.apply_format();
     }
 
+    fn set_fps(&mut self, fps: u8) {
+        self.video_fps = Some(fps);
+
+        self.apply_format();
+    }
+
     fn apply_format(&self) {
         let vid_format = match self.video_format {
             Some(StreamFormat::H264) => b"AVC1",
@@ -171,16 +183,24 @@ impl V4lDevice {
             None => return,
         };
 
-        if self.video_width.is_some() && self.video_height.is_some() {
+        if self.video_width.is_some() && self.video_height.is_some() && self.video_fps.is_some() {
             let fmt = Format::new(
                 self.video_width.unwrap(),
                 self.video_height.unwrap(),
                 FourCC::new(vid_format),
             );
 
+            let params = Parameters::with_fps(
+                self.video_fps.unwrap() as u32
+            );
+
             let sink_fmt = Output::set_format(&self.device, &fmt).unwrap();
 
             println!("New out format:\n{}", sink_fmt);
+
+            let sink_params = Output::set_params(&self.device, &params);
+
+            println!("New out params:\n{}", sink_params.unwrap());
         }
     }
 }

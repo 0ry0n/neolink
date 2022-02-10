@@ -8,8 +8,8 @@ use neolink_core::{
 use v4l::buffer::Type;
 use v4l::io::traits::OutputStream;
 use v4l::prelude::*;
-use v4l::video::Output;
 use v4l::video::output::Parameters;
+use v4l::video::Output;
 use v4l::{Format, FourCC};
 
 pub(crate) struct V4lDevice {

@@ -98,7 +98,7 @@ jobs:
           libgstreamer1.0-dev:${{ matrix.arch }} \
           libgtk2.0-dev:${{ matrix.arch }} \
           libglib2.0-dev:${{ matrix.arch }} \
-          libclang-11-dev:${{ matrix.arch }}
+          libclang-dev
       - name: Install ${{ matrix.arch }} Rust toolchain
         uses: actions-rs/toolchain@v1
         with:

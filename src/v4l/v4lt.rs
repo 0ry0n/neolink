@@ -8,8 +8,8 @@ use neolink_core::{
 use v4l::buffer::Type;
 use v4l::io::traits::OutputStream;
 use v4l::prelude::*;
-use v4l::video::Output;
 use v4l::video::output::Parameters;
+use v4l::video::Output;
 use v4l::{Format, FourCC};
 
 pub(crate) struct V4lDevice {
@@ -190,9 +190,7 @@ impl V4lDevice {
                 FourCC::new(vid_format),
             );
 
-            let params = Parameters::with_fps(
-                self.video_fps.unwrap() as u32
-            );
+            let params = Parameters::with_fps(self.video_fps.unwrap() as u32);
 
             let sink_fmt = Output::set_format(&self.device, &fmt).unwrap();
 

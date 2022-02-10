@@ -18,11 +18,11 @@ mod cmdline;
 mod config;
 mod reboot;
 mod rtsp;
-#[cfg(target_os = "linux")]
-mod v4l;
 mod statusled;
 mod talk;
 mod utils;
+#[cfg(target_os = "linux")]
+mod v4l;
 
 use cmdline::{Command, Opt};
 use config::Config;

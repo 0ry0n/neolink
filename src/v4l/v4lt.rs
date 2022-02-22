@@ -107,7 +107,7 @@ impl V4lDevice {
 
         // Now that we have fully determined the settings for the stream we can create the stream
         let mut stream = self.get_stream()?;
-        
+
         // Loop until error
         loop {
             let media = self.receiver.recv()?;

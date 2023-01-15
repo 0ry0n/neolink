@@ -140,6 +140,12 @@ impl GstOutputs {
             _ => "! fakesink".to_string(),
         };
 
+        error!(
+            "Apply Format Vid: {}, Aud: {}",
+            launch_vid,
+            launch_aud
+        );
+
         self.factory.set_launch(
             &vec![
             "( ",
